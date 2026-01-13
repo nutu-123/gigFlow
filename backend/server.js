@@ -11,26 +11,37 @@ dotenv.config();
 
 const app = express();
 
+// ✅ TRUST PROXY (must be early)
+app.set('trust proxy', 1);
+
 // Connect to database
 connectDB();
 
+// ✅ ALLOWED ORIGINS (EXACT MATCH, no slash)
 const allowedOrigins = [
   "http://localhost:5173",
-  "https://gig-flow-3kbxcqgoc-nutanphadtare7-7975s-projects.vercel.app/"
+  "https://gig-flow-nine.vercel.app"
 ];
 
-// Middleware
+// ✅ CORS (ONLY ONCE)
 app.use(cors({
   origin: function (origin, callback) {
     if (!origin) return callback(null, true);
+
     if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
+      callback(null, true);
     } else {
-      return callback(new Error("Not allowed by CORS"));
+      callback(new Error(`CORS blocked for origin: ${origin}`));
     }
   },
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   credentials: true
 }));
+
+// ✅ HANDLE PREFLIGHT REQUESTS
+app.options("*", cors());
+
+// Other middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -46,15 +57,6 @@ app.get('/', (req, res) => {
 });
 
 const PORT = process.env.PORT || 5000;
-
-// Add this near the top with other middleware
-app.set('trust proxy', 1);
-
-// Update CORS configuration
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-  credentials: true
-}));
 
 app.listen(PORT, () => {
   console.log(`🚀 Server is running on port ${PORT}`);
