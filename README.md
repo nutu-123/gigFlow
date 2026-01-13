@@ -14,9 +14,6 @@ A modern, full-stack freelance marketplace platform where clients can post gigs 
 - [API Documentation](#api-documentation)
 - [How It Works](#how-it-works)
 - [Database Schema](#database-schema)
-- [Screenshots](#screenshots)
-- [Future Enhancements](#future-enhancements)
-- [Contributing](#contributing)
 - [License](#license)
 - [Contact](#contact)
 
