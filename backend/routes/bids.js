@@ -141,6 +141,7 @@ router.patch('/:bidId/hire', protect, async (req, res) => {
       bid: updatedBid
     });
   } catch (error) {
+    console.error('Hire error:', error);
     res.status(500).json({ message: error.message });
   }
 });
