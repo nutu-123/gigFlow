@@ -1,128 +1,150 @@
-import express from 'express';
-import jwt from 'jsonwebtoken';
-import User from '../models/User.js';
+import express from "express";
+import jwt from "jsonwebtoken";
+import User from "../models/User.js";
 
 const router = express.Router();
 
-// Generate JWT
+/**
+ * Generate JWT
+ */
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: '30d'
+    expiresIn: "30d",
   });
 };
 
+/**
+ * COMMON COOKIE OPTIONS
+ * (Vercel frontend + Render backend)
+ */
+const cookieOptions = {
+  httpOnly: true,
+  secure: true,        // REQUIRED (HTTPS)
+  sameSite: "none",    // REQUIRED (cross-origin)
+  maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+};
+
+
+// ===============================
 // @route   POST /api/auth/register
 // @desc    Register user
 // @access  Public
-router.post('/register', async (req, res) => {
+// ===============================
+router.post("/register", async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    // Check if user exists
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
     const userExists = await User.findOne({ email });
 
     if (userExists) {
-      return res.status(400).json({ message: 'User already exists' });
+      return res.status(400).json({ message: "User already exists" });
     }
 
-    // Create user
     const user = await User.create({
       name,
       email,
-      password
+      password,
     });
 
-    if (user) {
-      const token = generateToken(user._id);
+    const token = generateToken(user._id);
 
-      // Set cookie
-      res.cookie('token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
-      });
+    // ✅ Set auth cookie
+    res.cookie("token", token, cookieOptions);
 
-      res.status(201).json({
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role
-      });
-    }
+    res.status(201).json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+    });
+
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
+
+// ===============================
 // @route   POST /api/auth/login
-// @desc    Auth user & get token
+// @desc    Login user
 // @access  Public
-router.post('/login', async (req, res) => {
+// ===============================
+router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Check for user email
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email and password required" });
+    }
+
     const user = await User.findOne({ email });
 
-    if (user && (await user.matchPassword(password))) {
-      const token = generateToken(user._id);
+    if (!user || !(await user.matchPassword(password))) {
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
 
-      // Set cookie
-      // Find all places where you set cookies and update:
-    res.cookie('token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
-      maxAge: 30 * 24 * 60 * 60 * 1000
+    const token = generateToken(user._id);
+
+    // ✅ Set auth cookie
+    res.cookie("token", token, cookieOptions);
+
+    res.json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
     });
 
-      res.json({
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role
-      });
-    } else {
-      res.status(401).json({ message: 'Invalid email or password' });
-    }
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
+
+// ===============================
 // @route   POST /api/auth/logout
-// @desc    Logout user / clear cookie
+// @desc    Logout user
 // @access  Public
-router.post('/logout', (req, res) => {
-  res.cookie('token', '', {
-    httpOnly: true,
-    expires: new Date(0)
+// ===============================
+router.post("/logout", (req, res) => {
+  res.cookie("token", "", {
+    ...cookieOptions,
+    expires: new Date(0),
   });
-  res.json({ message: 'Logged out successfully' });
+
+  res.json({ message: "Logged out successfully" });
 });
 
+
+// ===============================
 // @route   GET /api/auth/me
-// @desc    Get current user
+// @desc    Get logged-in user
 // @access  Private
-router.get('/me', async (req, res) => {
+// ===============================
+router.get("/me", async (req, res) => {
   try {
     const token = req.cookies.token;
 
     if (!token) {
-      return res.status(401).json({ message: 'Not authenticated' });
+      return res.status(401).json({ message: "Not authenticated" });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id).select('-password');
+
+    const user = await User.findById(decoded.id).select("-password");
 
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: "User not found" });
     }
 
     res.json(user);
+
   } catch (error) {
-    res.status(401).json({ message: 'Not authenticated' });
+    res.status(401).json({ message: "Not authenticated" });
   }
 });
 
